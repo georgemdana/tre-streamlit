@@ -19,8 +19,13 @@ class policies:
                 privileges_statements.append(privilege_statement)
         return privileges_statements
 
-    def fr_assignment_statement_gen(session, privileges_statements, fr_name, users):
+    def fr_assignment_statement_gen(privileges_statements, fr_name, users):
         for user in users:
             fr_assignment_query = f"GRANT ROLE {fr_name} TO USER {user}"
             privileges_statements.append(fr_assignment_query)
+        return privileges_statements
+    
+    def wh_assignment_statement_gen(privileges_statements, fr_name, wh_name):
+        wh_assignment_query = f"GRANT USAGE ON WAREHOUSE {wh_name} TO ROLE {fr_name}"
+        privileges_statements.append(wh_assignment_query)
         return privileges_statements

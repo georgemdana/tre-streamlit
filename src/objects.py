@@ -18,5 +18,9 @@ class objects:
         return table_query
     
     def functional_role_standup_query_gen(fr_name):
-        functional_role_query = f"CREATE ROLE {fr_name.upper()}"
+        functional_role_query = f"CREATE ROLE IF NOT EXISTS {fr_name.upper()}"
         return functional_role_query
+    
+    def warehouse_standup_query_gen(wh_name, wh_size):
+        warehouse_query = f"CREATE WAREHOUSE IF NOT EXISTS {wh_name} WITH WAREHOUSE_SIZE='{wh_size}'"
+        return warehouse_query
