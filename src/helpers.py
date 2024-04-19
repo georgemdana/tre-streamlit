@@ -17,6 +17,17 @@ class helpers:
     def execute_sql(session, command):
         sql_command = session.sql(command)
         return sql_command.collect()
+    
+    def execute_sql_pandas(session, command):
+        sql_command = session.sql(command)
+        return sql_command.to_pandas()
+    
+    def querify_list(list):
+        string = ""
+        for i in list:
+            string = string + f"{i}, "
+        string = string[:-2]
+        return string
 
 
 
