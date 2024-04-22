@@ -45,7 +45,7 @@ class helpers:
             yaml.dump(data, file)
 
     def read_data(environment_name):
-        with open(f"{environment_name}.yaml", "r") as file:
+        with open(f"environments/{environment_name}", "r") as file:
             # Load the YAML data
             yaml_data = yaml.safe_load(file)
         db_name = yaml_data['db_name']
@@ -53,9 +53,9 @@ class helpers:
         wh_name = yaml_data['wh_name']
         return db_name, fr_name, wh_name
     
-    def delete_environment(self, environment_name):
-        db_name, fr_name, wh_name = self.read_data(environment_name)
-        return [f"DROP DATABASE IF EXISTS {db_name}", f"DROP ROLE IF EXISTS {fr_name}", f"DROP WAREHOUSE IF EXISTS {wh_name}"]
+    def delete_environment(environment_name):
+        db_name, fr_name, wh_name = helpers.read_data(environment_name)
+        return ["USE ROLE SECURITYADMIN", f"DROP ROLE IF EXISTS {fr_name}", "USE ROLE SYSADMIN", f"DROP DATABASE IF EXISTS {db_name}", f"DROP WAREHOUSE IF EXISTS {wh_name}"]
     
     def query_executions(session, queries):
         object_status = []

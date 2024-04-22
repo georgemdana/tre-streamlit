@@ -5,6 +5,7 @@ from helpers import helpers
 from objects import objects
 from policies import policies
 import pandas as pd
+import os
 
 def object_query_generation():
     ## this function cycles through all schemas under our chosen database and generates queries for db, schema, table and FR creation
@@ -95,14 +96,6 @@ with environment_creation:
 
     if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0:
         object_queries = object_query_generation()
-        privilege_queries = privilege_query_generation()
-        
-        # object_status = ["Not Run"] * len(object_queries)
-        # print(object_status)
-        # object_queries_df = pd.DataFrame({
-        #     'Query': object_queries,
-        #     'Status': object_status
-        # })
 
         if 'button1_clicked' not in st.session_state:
             st.session_state.button1_clicked = False
@@ -120,71 +113,29 @@ with environment_creation:
 
         if not st.session_state.button2_clicked and st.session_state.button1_clicked == True:
             if st.button("Run Snowflake Grants Scripts"):
+                privilege_queries = privilege_query_generation()
                 grants_queries_df = helpers.query_executions(session = session, queries = privilege_queries)
                 st.table(grants_queries_df)
                 st.write("Please ensure all queries successfully ran, if you'd like to stand up a new environment, hit the add new environment file")
+                st.session_state.button2_clicked = True
                 if st.button("Start a new environment"):
                     for key in st.session_state.keys():
                         del st.session_state[key]
-                    st.rerun()
-                st.session_state.button2_clicked = True
-        # if st.button("Run Snowflake Object Creation Scripts"):
-        #     object_queries_df = helpers.query_executions(session = session, queries = object_queries)
-        #     helpers.save_env(environment_name, fr_name, wh_name)
-        #     st.table(object_queries_df)
-        #     st.write("Please ensure all queries successfully ran before continuing")
-        #     if st.button("Run Snowflake Grants Scripts"):
-        #         grants_queries_df = helpers.query_executions(session = session, queries = object_queries)
-        #         st.table(grants_queries_df)
-        #         st.write("Please ensure all queries successfully ran, if you'd like to stand up a new environment, hit the add new environment file")
-        
-        # if st.button("Run Object Creation Scripts"):
-        #     object_status = []
-        #     for i in object_queries:
-        #         try:
-        #             helpers.execute_sql(session, i)
-        #             object_status.append("Query Succeeded")
-        #         except Exception as e:
-        #             object_status.append("Query Failed")
-        #     object_queries_df = pd.DataFrame({
-        #         'Query': object_queries,
-        #         'Status': object_status
-        #     })
-
-        #     st.table(object_queries_df)
-        #     st.write("Please ensure all queries successfully ran before continuing")
-            # if object_queries_df["Status"].eq("Query Succeeded").all():
-            #     st.write("All object creations succeeded")
-
-        # if st.button("Run Snowflake Grants Scripts"):
-        #     object_status = []
-        #     for i in object_queries:
-        #         try:
-        #             helpers.execute_sql(session, i)
-        #             object_status.append("Query Succeeded")
-        #         except Exception as e:
-        #             object_status.append("Query Failed")
-        #     object_queries_df = pd.DataFrame({
-        #         'Query': object_queries,
-        #         'Status': object_status
-        #     })
-
-        #     st.table(object_queries_df)
-        #     st.write("Please ensure all queries successfully ran before continuing")
-            # if object_queries_df["Status"].eq("Query Succeeded").all():
-            #     st.write("All object creations succeeded")
-
-
-
-        
-        # if st.button("run object creation scripts"):
-        #     for i in object_queries:
-        #         try:
-        #             st.write(helpers.execute_sql(session, i))
-        #         except Exception as e:
-        #             st.write(e)
-                
-        # st.write("------------------")
-        # for i in privilege_queries:
-        #     st.write(i)
+                    st.experimental_rerun()
     
+with environment_management:
+    environments = os.listdir("environments/")
+    if len(environments) == 0:
+        st.write("No Environments Detected, Please Create an Environment to get Started")
+    else:
+        for environment in environments:
+            col1, col2 = st.columns(2)
+            with col1:
+                st.write(environment.split(".")[0])
+            with col2:
+                if st.button("Delete Environment"):
+                    delete_statements = helpers.delete_environment(environment)
+                    for statement in delete_statements:
+                        helpers.execute_sql(session, statement)
+                    os.remove(f"environments/{environment}")
+                    st.experimental_rerun()

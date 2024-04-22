@@ -10,10 +10,7 @@ class objects:
     
     def table_standup_query_gen(table, environment_name, schema, source_db, table_columns):
         columns = helpers.querify_list(table_columns)
-        # columns = ""
-        # for column in table_columns:
-        #     columns = columns + f"{column}, "
-        # columns = columns[:-2]
+
         target_table = table.split(".", 2)
         table_query = f"CREATE TABLE IF NOT EXISTS {environment_name}.{schema}.{target_table[2]} AS SELECT {columns} FROM {table}"
         return table_query
