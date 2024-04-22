@@ -1,5 +1,7 @@
 from snowflake.snowpark.session import Session
 import yaml
+import streamlit as st
+import pandas as pd
 
 class helpers:
     def create_snowpark_session(username, password, account, role = "ACCOUNTADMIN", warehouse = "COMPUTE_WH"):
@@ -41,5 +43,34 @@ class helpers:
 
         with open(yaml_file_path, 'w') as file:
             yaml.dump(data, file)
+
+    def read_data(environment_name):
+        with open(f"{environment_name}.yaml", "r") as file:
+            # Load the YAML data
+            yaml_data = yaml.safe_load(file)
+        db_name = yaml_data['db_name']
+        fr_name = yaml_data['fr_name']
+        wh_name = yaml_data['wh_name']
+        return db_name, fr_name, wh_name
+    
+    def delete_environment(self, environment_name):
+        db_name, fr_name, wh_name = self.read_data(environment_name)
+        return [f"DROP DATABASE IF EXISTS {db_name}", f"DROP ROLE IF EXISTS {fr_name}", f"DROP WAREHOUSE IF EXISTS {wh_name}"]
+    
+    def query_executions(session, queries):
+        object_status = []
+        for i in queries:
+            try:
+                helpers.execute_sql(session, i)
+                object_status.append("Query Succeeded")
+            except Exception as e:
+                object_status.append("Query Failed")
+        queries_df = pd.DataFrame({
+            'Query': queries,
+            'Status': object_status
+        })
+        return queries_df
+
+
 
 

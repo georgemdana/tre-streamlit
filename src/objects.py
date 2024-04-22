@@ -14,7 +14,8 @@ class objects:
         # for column in table_columns:
         #     columns = columns + f"{column}, "
         # columns = columns[:-2]
-        table_query = f"CREATE TABLE IF NOT EXISTS {environment_name}.{schema}.{table} AS SELECT {columns} FROM {source_db}.{schema}.{table}"
+        target_table = table.split(".", 2)
+        table_query = f"CREATE TABLE IF NOT EXISTS {environment_name}.{schema}.{target_table[2]} AS SELECT {columns} FROM {table}"
         return table_query
     
     def functional_role_standup_query_gen(fr_name):

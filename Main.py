@@ -7,6 +7,7 @@ import yaml
 
 def object_query_generation():
     ## this function cycles through all schemas under our chosen database and generates queries for db, schema, table and FR creation
+    object_queries = ["USE ROLE SYSADMIN"]
     environment_name, envrionment_query = objects.db_standup_query_gen(research_group_name, research_project) #generate database create statement
     object_queries.append(envrionment_query)
 
