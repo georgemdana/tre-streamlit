@@ -3,6 +3,7 @@ sys.path.append('./src')
 from helpers import helpers
 from objects import objects
 from policies import policies
+import yaml
 
 def object_query_generation():
     ## this function cycles through all schemas under our chosen database and generates queries for db, schema, table and FR creation
@@ -58,9 +59,15 @@ users = ["TCAULTON"]
 
 object_queries = object_query_generation()
 for i in object_queries:
+    print(i)
     helpers.execute_sql(session, i)
 
 privilege_queries = privilege_query_generation()
 helpers.execute_sql(session, "USE ROLE SECURITYADMIN") # swap to sysadmin for privileges
 for i in privilege_queries:
+    print(i)
     helpers.execute_sql(session, i)
+
+environment_name = f"{research_group_name.upper()}_{research_project.upper()}_RG_ENVIRONMENT"
+
+helpers.save_env(environment_name, fr_name, wh_name)
