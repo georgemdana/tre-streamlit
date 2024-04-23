@@ -7,6 +7,7 @@ from policies import policies
 import pandas as pd
 import os
 
+# use this function to generate all queries needed for object stand-up and return them as a list
 def object_query_generation():
     ## this function cycles through all schemas under our chosen database and generates queries for db, schema, table and FR creation
     object_queries = ["USE ROLE SYSADMIN"]
@@ -29,6 +30,7 @@ def object_query_generation():
     object_queries.append(functional_role_query)
     return object_queries
 
+# use this function to generate all queries needed for grant stand-up and return them as a list
 def privilege_query_generation():
     environment_name, environment_query = objects.db_standup_query_gen(research_group_name, research_project)
     statements = policies.fr_privilege_statement_gen(session, fr_name, privileges, environment_name)
@@ -47,40 +49,46 @@ with environment_creation:
     wh_name = f"WH_{research_group_name.upper()}_{research_project.upper()}"
     environment_name = f"{research_group_name.upper()}_{research_project.upper()}_RG_ENVIRONMENT"
     
-
+    # fetch desired warehouse size
     wh_sizes = ["XSMALL", "SMALL", "MEDIUM", "LARGE", "XLARGE", "XXLARGE", "XXXLARGE", "X4LARGE", "X5LARGE", "X6LARGE"]
     wh_size = st.selectbox(label = "Please select a warehouse size for researchers", options = wh_sizes)
 
+    # fetch privileges needed for users
     privileges_options = ["SELECT", "INSERT", "UPDATE", "DELETE", "REFERENCES", "ALTER", "USAGE", "OWNERSHIP"]
     privileges = st.multiselect(label = "Please select what table privileges you want researchers to have", options = privileges_options)
 
+    # fetch users needed for research environment
     users_options = pd.DataFrame(helpers.execute_sql(session, f"SHOW USERS"))["name"].tolist()
     users = st.multiselect(label = "What users should be granted access", options = users_options)
     
     dbs = pd.DataFrame(helpers.execute_sql(session, f"SHOW DATABASES"))["name"].tolist()
-    source_db = st.selectbox(label = "please select a source database for this environment", options = dbs)
+    source_db = st.selectbox(label = "Please select a source database for this environment", options = dbs)
     table_dictionary = {}
+    
+    # schema selection wizard
     if len(source_db) > 0:
         st.markdown("""---""")
         st.write("select schemas here")
         st.markdown("""---""")
         schemas = pd.DataFrame(helpers.execute_sql(session, f"SHOW SCHEMAS IN DATABASE {source_db}"))["name"].tolist()
-        source_schemas = st.multiselect(label = "please select the schemas you'd like to pull data from", options= schemas)
+        source_schemas = st.multiselect(label = "Please select the schemas you'd like to pull data from", options= schemas)
 
+    # table selection wizard
     if len(source_schemas) > 0:
         st.markdown("""---""")
-        st.write("select tables here")
+        st.write("Select tables here")
         st.markdown("""---""")
         table_dictionary = {}
         for i in source_schemas:
             tables = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN SCHEMA {source_db}.{i}"))["name"].tolist()
             tables = [f"{source_db}.{i}." + s for s in tables]
-            source_tables = st.multiselect(label = f"please select the tables you'd like to pull data from in schema {source_db}.{i}", options= tables)
+            source_tables = st.multiselect(label = f"Please select the tables you'd like to pull data from in schema {source_db}.{i}", options= tables)
             table_dictionary[f"{source_db}.{i}"] = source_tables
         
+    # column selection wizard
     if len(table_dictionary) > 0:
         st.markdown("""---""")
-        st.write("select columns here")
+        st.write("Select columns here")
         st.markdown("""---""")
         column_dictionary = {}
         tables = []
@@ -90,10 +98,11 @@ with environment_creation:
         print(tables)
         for i in tables:
             columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {i}"))["column_name"].tolist()
-            source_columns = st.multiselect(label = f"please select the columns you'd like to pull data from in table {i}", options= columns)
+            source_columns = st.multiselect(label = f"Please select the columns you'd like to pull data from in table {i}", options= columns)
             column_dictionary[f"{i}"] = source_columns
         print(column_dictionary)
 
+    # query generation and execution wizard
     if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0:
         object_queries = object_query_generation()
 
