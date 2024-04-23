@@ -142,7 +142,7 @@ with environment_management:
             with col1:
                 st.write(environment.split(".")[0])
             with col2:
-                if st.button("Delete Environment"):
+                if st.button("Delete Environment", key = environment):
                     delete_statements = helpers.delete_environment(environment)
                     for statement in delete_statements:
                         helpers.execute_sql(session, statement)
