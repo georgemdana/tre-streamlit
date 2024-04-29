@@ -39,9 +39,10 @@ def privilege_query_generation():
     return privilege_statements
 
 session = helpers.create_snowpark_session('tcaulton', 'Foo1234!', 'IZB40366', 'accountadmin', 'compute_wh')
-environment_creation, environment_management = st.tabs(["Environment Creation", "Environment Management"])
+environment_creation, object_standup, grant_setup, environment_management = st.tabs(["Environment Creation", "Object Creation", "Grant Set Up", "Environment Management"])
 
 with environment_creation:
+    object_status = "not ran"
     helpers.execute_sql(session, "USE ROLE SYSADMIN")
     research_group_name = st.text_input(label = "what is the name of your research group")
     research_project = st.text_input(label = "what is the name of this reserach project")
@@ -104,34 +105,42 @@ with environment_creation:
 
     # query generation and execution wizard
     if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0:
+        st.write("Wizard Successfully Stood up, please continue to object stand up tab")
+
+with object_standup:
+    if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0:
         object_queries = object_query_generation()
+        st.header("Research Environment Object Query Standup and Execution")
 
-        if 'button1_clicked' not in st.session_state:
-            st.session_state.button1_clicked = False
+        st.write("Review the following queries and ensure they align with what you want to set up")
+        for query in object_queries:
+            st.write(query)
+        if st.button("Run Snowflake Object Creation Scripts"):
+            object_queries_df = helpers.query_executions(session = session, queries = object_queries)
+            helpers.save_env(environment_name, fr_name, wh_name)
+            st.table(object_queries_df)
+            object_status = "ran"
+            st.write("Please ensure all queries successfully ran before continuing")
+    else:
+        st.write("Please fill out first tab before moving to this page")
 
-        if 'button2_clicked' not in st.session_state:
-            st.session_state.button2_clicked = False
+with grant_setup:
+    if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0:
+        st.header("Research Environment Grant Query Standup and Execution")
 
-        if not st.session_state.button1_clicked:
-            if st.button("Run Snowflake Object Creation Scripts"):
-                object_queries_df = helpers.query_executions(session = session, queries = object_queries)
-                helpers.save_env(environment_name, fr_name, wh_name)
-                st.table(object_queries_df)
-                st.write("Please ensure all queries successfully ran before continuing")
-                st.session_state.button1_clicked = True
+        st.write("Review the following queries and ensure they align with what grants need set up")
+        if object_status == "ran":
+            privilege_queries = privilege_query_generation()
+            for query in privilege_queries:
+                st.write(query)
+        if st.button("Run Snowflake Grants Scripts"):
+            privilege_queries = privilege_query_generation()
+            grants_queries_df = helpers.query_executions(session = session, queries = privilege_queries)
+            st.table(grants_queries_df)
+            st.session_state.button2_clicked = True
+    else:
+        st.write("Please fill out second tab before moving to this page")
 
-        if not st.session_state.button2_clicked and st.session_state.button1_clicked == True:
-            if st.button("Run Snowflake Grants Scripts"):
-                privilege_queries = privilege_query_generation()
-                grants_queries_df = helpers.query_executions(session = session, queries = privilege_queries)
-                st.table(grants_queries_df)
-                st.write("Please ensure all queries successfully ran, if you'd like to stand up a new environment, hit the add new environment file")
-                st.session_state.button2_clicked = True
-                if st.button("Start a new environment"):
-                    for key in st.session_state.keys():
-                        del st.session_state[key]
-                    st.experimental_rerun()
-    
 with environment_management:
     environments = [ f for f in os.listdir("environments/") if f.endswith('.yaml') ]
     if len(environments) == 0:
