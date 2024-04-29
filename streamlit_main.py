@@ -133,7 +133,7 @@ with environment_creation:
                     st.experimental_rerun()
     
 with environment_management:
-    environments = os.listdir("environments/")
+    environments = [ f for f in os.listdir("environments/") if f.endswith('.yaml') ]
     if len(environments) == 0:
         st.write("No Environments Detected, Please Create an Environment to get Started")
     else:
