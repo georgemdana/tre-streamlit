@@ -171,16 +171,17 @@ with environment_management:
                         helpers.execute_sql(session, statement)
                     os.remove(f"environments/{environment}")
                     st.experimental_rerun()
-                if st.button("Archive Environment", key = f"{environment}_archive"):
-                    archive_statements = helpers.archive_environment(environment)
-                    for statement in archive_statements:
-                        helpers.execute_sql(session, statement)
-                    with open(f"environments/{environment}", "r") as file:
-                        data = yaml.safe_load(file)
-                    
-                    data['archived'] = 'True'
-                    data['archive_date'] = date.today()
+                if archive_status == 'False':
+                    if st.button("Archive Environment", key = f"{environment}_archive"):
+                        archive_statements = helpers.archive_environment(environment)
+                        for statement in archive_statements:
+                            helpers.execute_sql(session, statement)
+                        with open(f"environments/{environment}", "r") as file:
+                            data = yaml.safe_load(file)
+                        
+                        data['archived'] = 'True'
+                        data['archive_date'] = date.today()
 
-                    with open(f"environments/{environment}", "w") as file:
-                        yaml.dump(data, file)
-                    st.experimental_rerun()
+                        with open(f"environments/{environment}", "w") as file:
+                            yaml.dump(data, file)
+                        st.experimental_rerun()
