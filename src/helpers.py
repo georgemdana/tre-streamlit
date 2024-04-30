@@ -32,11 +32,15 @@ class helpers:
         string = string[:-2]
         return string
     
-    def save_env(environment_name, fr_name, wh_name):
+    def save_env(environment_name, fr_name, wh_name, users, date, archive_status):
         data = {
             'db_name': environment_name,
             'fr_name': fr_name,
-            'wh_name': wh_name
+            'wh_name': wh_name,
+            'users': users,
+            'date_created': date,
+            'archived': archive_status,
+            'archive_date': "N/A"
         }
 
         yaml_file_path = f'environments/{environment_name}.yaml'
@@ -51,12 +55,23 @@ class helpers:
         db_name = yaml_data['db_name']
         fr_name = yaml_data['fr_name']
         wh_name = yaml_data['wh_name']
-        return db_name, fr_name, wh_name
+        users = yaml_data['users']
+        date_created = yaml_data['date_created']
+        archive_status = yaml_data['archived']
+        archive_date = yaml_data['archive_date']
+        return db_name, fr_name, wh_name, users, date_created, archive_status, archive_date
     
     def delete_environment(environment_name):
-        db_name, fr_name, wh_name = helpers.read_data(environment_name)
+        db_name, fr_name, wh_name, users, date_created, archive_status, archive_date = helpers.read_data(environment_name)
         return ["USE ROLE SECURITYADMIN", f"DROP ROLE IF EXISTS {fr_name}", "USE ROLE SYSADMIN", f"DROP DATABASE IF EXISTS {db_name}", f"DROP WAREHOUSE IF EXISTS {wh_name}"]
-    
+
+    def archive_environment(environment_name):
+        db_name, fr_name, wh_name, users, date_created, archive_status, archive_date = helpers.read_data(environment_name)
+        archive_query = ["USE ROLE SECURITYADMIN"]
+        for user in users:
+            archive_query += [f"REVOKE ROLE {fr_name} FROM USER {user}"]
+        return archive_query
+
     def query_executions(session, queries):
         object_status = []
         for i in queries:
