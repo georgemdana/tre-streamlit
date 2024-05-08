@@ -12,7 +12,7 @@ import yaml
 # secrets management
 from dotenv import load_dotenv
 
-load_dotenv("/Users/danageorge/Documents/Hakkoda Github/Trusted-Research-Environment/.env")
+load_dotenv("/Users/danageorge/Documents/Hakkoda Github/Trusted-Research-Environment/environments/.env")
 
 username = os.getenv("username")
 password = os.getenv("password")
