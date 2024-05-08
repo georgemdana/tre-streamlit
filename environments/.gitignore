@@ -1,4 +1,8 @@
-#Ignore everything
-*
-#dont ignore this file
-!.gitignore
+# Ignore YAML files
+*.yaml
+
+# Ignore Python bytecode cache files
+__pycache__/
+
+# Ignore Secrets
+.env

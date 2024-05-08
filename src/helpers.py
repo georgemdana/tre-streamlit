@@ -1,4 +1,4 @@
-from snowflake.snowpark.session import Session
+from snowflake.snowpark import Session
 import yaml
 import streamlit as st
 import pandas as pd

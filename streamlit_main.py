@@ -9,6 +9,21 @@ import os
 from datetime import date
 import yaml
 
+# secrets management
+from dotenv import load_dotenv
+
+load_dotenv("/Users/danageorge/Documents/Hakkoda Github/Trusted-Research-Environment/.env")
+
+username = os.getenv("username")
+password = os.getenv("password")
+account = os.getenv("account")
+role = os.getenv("role")
+warehouse = os.getenv("warehouse")
+
+## App Start
+
+st.title("FROST")
+
 # use this function to generate all queries needed for object stand-up and return them as a list
 def object_query_generation():
     ## this function cycles through all schemas under our chosen database and generates queries for db, schema, table and FR creation
@@ -40,7 +55,7 @@ def privilege_query_generation():
     privilege_statements = policies.wh_assignment_statement_gen(statements_2, fr_name, wh_name)
     return privilege_statements
 
-session = helpers.create_snowpark_session('tcaulton', 'Foo1234!', 'IZB40366', 'accountadmin', 'compute_wh')
+session = helpers.create_snowpark_session(username, password, account, role, warehouse)
 environment_creation, object_standup, grant_setup, environment_management = st.tabs(["Environment Creation", "Object Creation", "Grant Set Up", "Environment Management"])
 object_status = "not ran"
 

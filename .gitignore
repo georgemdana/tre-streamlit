@@ -1,5 +1,0 @@
-# Ignore YAML files
-*.yaml
-
-# Ignore Python bytecode cache files
-__pycache__/
