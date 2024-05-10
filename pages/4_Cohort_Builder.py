@@ -8,6 +8,7 @@ import pandas as pd
 import os
 from datetime import date
 import yaml
+from streamlit_dynamic_filters import DynamicFilters
 
 # secrets management
 from dotenv import load_dotenv
@@ -40,46 +41,70 @@ object_status = "not ran"
 
 with cohort_builder:
     helpers.execute_sql(session, "USE ROLE SYSADMIN")
-    dbs = pd.DataFrame(helpers.execute_sql(session, f"SHOW DATABASES"))["name"].tolist()
-    source_db = st.selectbox(label = "Frost Environment", options = dbs) # Select a source data base for this environment
-    table_dictionary = {}
+    # Choose environment/database
+    environments = [ f for f in os.listdir("environments/") if f.endswith('.yaml') ]
+    if len(environments) == 0:
+         st.write("**No Environments Detected. Please use the Environment Builder Tab to Get Started.**")
+    else:
+        dbs = st.selectbox(label = "Trusted Research Environment", options = helpers.strip_yaml(environments))
+        table_dictionary = {}
+
+    # # Choose table
+    # table_options = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES"))["name"].tolist()
+    # tables = st.selectbox(label = "Tables", options = table_options)
+    # # Choose columns
+    # column_options = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS"))["name"].tolist()
+    # columns = st.selectbox(label = "Columns", options = column_options)
 
     # schema selection wizard
-    if len(source_db) > 0:
-        #st.markdown("""---""")
-        #st.write("Select schemas here")
-        #st.markdown("""---""")
-        schemas = pd.DataFrame(helpers.execute_sql(session, f"SHOW SCHEMAS IN DATABASE {source_db}"))["name"].tolist()
-        source_schemas = st.multiselect(label = "Source Schemas", options= schemas)
+    if len(dbs) > 0:
+        schemas = pd.DataFrame(helpers.execute_sql(session, f"SHOW SCHEMAS IN DATABASE {dbs}"))["name"].tolist()
+        source_schemas = st.multiselect(label = "Schemas", options = schemas)
+
+    # Load data from table to research database
 
     # table selection wizard
     if len(source_schemas) > 0:
-        #st.markdown("""---""")
-        #st.write("Select tables here")
-        #st.markdown("""---""")
         table_dictionary = {}
         for i in source_schemas:
-            tables = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN SCHEMA {source_db}.{i}"))["name"].tolist()
-            tables = [f"{source_db}.{i}." + s for s in tables]
-            source_tables = st.multiselect(label = f"Source Tables From Schema: {source_db}.{i}", options= tables)
-            table_dictionary[f"{source_db}.{i}"] = source_tables
+            tables = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN SCHEMA {dbs}.{i}"))["name"].tolist()
+            tables = [f"{dbs}.{i}." + s for s in tables]
+            source_tables = st.multiselect(label = f"Source Tables From Schema: {dbs}.{i}", options= tables)
+            table_dictionary[f"{dbs}.{i}"] = source_tables
+
+    # # table selection wizard
+    # if len(source_schemas) > 0:
+    #     table_dictionary = {}
+    #     for i in source_schemas:
+    #         tables = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN SCHEMA {dbs}.{i}"))["name"].tolist()
+    #         tables = [f"{dbs}.{i}." + s for s in tables]
+    #         source_tables = st.multiselect(label = f"Source Tables From Schema: {dbs}.{i}", options = tables)
+    #         table_dictionary[f"{dbs}.{i}"] = source_tables
         
-    # column selection wizard
-    if len(table_dictionary) > 0:
-        #st.markdown("""---""")
-        #st.write("Select columns here")
-        #st.markdown("""---""")
-        column_dictionary = {}
-        tables = []
-        for i in source_schemas:
-            schema = f"{source_db}.{i}"
-            tables.extend(table_dictionary[schema])
-        print(tables)
-        for i in tables:
-            columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {i}"))["column_name"].tolist()
-            source_columns = st.multiselect(label = f"Source Columns From Table: {i}", options= columns)
-            column_dictionary[f"{i}"] = source_columns
-        print(column_dictionary)
+    # # column selection wizard
+    # if len(table_dictionary) > 0:
+    #     column_dictionary = {}
+    #     tables = []
+    #     for i in source_schemas:
+    #         schema = f"{dbs}.{i}"
+    #         tables.extend(table_dictionary[schema])
+    #     print(tables)
+    #     for i in tables:
+    #         columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {i}"))["column_name"].tolist()
+    #         source_columns = st.multiselect(label = f"Source Columns From Table: {i}", options= columns)
+    #         column_dictionary[f"{i}"] = source_columns
+    #     print(column_dictionary)
+
+    #     dynamic_filters = DynamicFilters(source_tables, filters = source_columns)
+    #     dynamic_filters.display_filters(location='columns', num_columns=4, gap='small')
+    #     dynamic_filters.display_df()
+
+
+    # df = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN ")["name"].tolist()
+    # columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {i}"))["column_name"].tolist()
+    # dynamic_filters = DynamicFilters(df, filters=['region', 'country', 'city', 'district'])
+
+
 
 with cohort_check:
     print("hi")

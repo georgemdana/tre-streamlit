@@ -66,7 +66,7 @@ with environment_creation:
     research_project = st.text_input(label = "Research Project Name") # No spaces
     fr_name = f"FR_{research_group_name.upper()}_{research_project.upper()}"
     wh_name = f"WH_{research_group_name.upper()}_{research_project.upper()}"
-    environment_name = f"{research_group_name.upper()}_{research_project.upper()}_RG_ENVIRONMENT"
+    environment_name = f"{research_group_name.upper()}_{research_project.upper()}_TRE"
     
     # fetch desired warehouse size
     wh_sizes = ["XSMALL", "SMALL", "MEDIUM", "LARGE", "XLARGE", "XXLARGE", "XXXLARGE", "X4LARGE", "X5LARGE", "X6LARGE"]
@@ -86,17 +86,11 @@ with environment_creation:
     
     # schema selection wizard
     if len(source_db) > 0:
-        #st.markdown("""---""")
-        #st.write("Select schemas here")
-        #st.markdown("""---""")
         schemas = pd.DataFrame(helpers.execute_sql(session, f"SHOW SCHEMAS IN DATABASE {source_db}"))["name"].tolist()
-        source_schemas = st.multiselect(label = "Source Schemas", options= schemas)
+        source_schemas = st.multiselect(label = "Source Schemas", options = schemas)
 
     # table selection wizard
     if len(source_schemas) > 0:
-        #st.markdown("""---""")
-        #st.write("Select tables here")
-        #st.markdown("""---""")
         table_dictionary = {}
         for i in source_schemas:
             tables = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN SCHEMA {source_db}.{i}"))["name"].tolist()
@@ -130,9 +124,9 @@ with object_standup:
     if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0:
         object_status = "ran"
         object_queries = object_query_generation()
-        st.header("Research Environment Object Query Standup and Execution")
+        st.title("Research Environment Object Query Standup and Execution")
 
-        st.write("**Please review the following queries and ensure they align with the environment you are standing up.**")
+        st.write("**Please review the following queries. Ensure they align with the environment you would like to stand up.**")
         for query in object_queries:
             st.write(query)
         if st.button("Run Snowflake Object Creation Scripts"):

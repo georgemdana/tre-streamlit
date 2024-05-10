@@ -46,9 +46,11 @@ def frosthomepage():
     
         ##### 1. Environment Builder Tab
         Easily stand up a Trusted Research Environment in Snowflake. This environment will be a skeleton with no data.
-        ##### 2. Cohort Builder Tab
+        ##### 2. Environment Manager Tab
+        Data about your Trusted Research Environments. This includes schemas, tables, roles, warehouses, users, creation date. You can also use this tab to delete and archive environments.
+        ##### 3. Cohort Builder Tab
         Use the skeleton environment you just stood up in step 1 to choose the precise cohort of data you would like added for your research purposes.
-        ##### 3. Dashboards Tab
+        ##### 4. Dashboards Tab
         Start building dashboards in Sigma to begin analyzing your research cohort.
 
     """

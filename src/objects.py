@@ -1,7 +1,7 @@
 from helpers import helpers
 class objects:
     def db_standup_query_gen(research_group_name, research_project):
-        environment_name = f"{research_group_name.upper()}_{research_project.upper()}_RG_ENVIRONMENT"
+        environment_name = f"{research_group_name.upper()}_{research_project.upper()}_TRE"
         return environment_name, f"CREATE DATABASE IF NOT EXISTS {environment_name}"
 
     def schema_standup_query_gen(schema, environment_name):

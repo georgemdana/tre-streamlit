@@ -85,7 +85,9 @@ class helpers:
             'Status': object_status
         })
         return queries_df
-
-
-
-
+    
+    def strip_yaml(dataframe):
+        chars = '.yaml'
+        stripped = ""
+        stripped = [sub.replace(chars, '') for sub in dataframe]
+        return stripped 
