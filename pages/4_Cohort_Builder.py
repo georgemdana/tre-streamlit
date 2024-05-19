@@ -157,7 +157,9 @@ with cohort_builder:
 
 
 with cohort_check:
-    print("hi")
+    st.write("")
+    st.write("")
+    st.write(f"**Under Construction**")
 
 # def object_query_generation():
 #     ## this function cycles through all schemas under our chosen database and generates queries for db, schema, table and FR creation

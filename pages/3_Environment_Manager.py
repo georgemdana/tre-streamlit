@@ -36,20 +36,40 @@ with environment_management:
     if len(environments) == 0:
         st.write("**No Environments Detected. Please create an environment to get started.**")
     else:
+        col1, col2, col3 = st.columns(3)
+        col3.markdown("**:red[Trusted Research Environment Count: " + str(len(set(environments))) + "]**")
+        st.write("")
+        
         for environment in environments:
             db_name, fr_name, wh_name, users, date_created, archive_status, archive_date = helpers.read_data(environment)
+
             col1, col2 = st.columns(2)
             with col1:
-                st.write(f"Environment Name: {environment.split('.')[0]}")
-                st.write(f"Functional Role: {fr_name}")
-                st.write(f"Warehouse: {wh_name}")
-                st.write(f"Users: {users}")
-                st.write(f"Date Created: {date_created}")
-                st.write(f"Archive Status: {archive_status}")
-                st.write(f"Archive Date: {archive_date}")
-                st.markdown("""---""")
+                newline = '  \n'
+                #st.write(f"**Environment Name:** {environment.split('.')[0]}")
+                st.subheader(f":blue[{environment.split('.')[0]}]")
+                # st.write(f"**Functional Role:** {fr_name}")
+                # st.write(f"**Warehouse:** {wh_name}")
+                # st.write(f"**Users:** {users}")
+                # st.write(f"**Date Created:** {date_created}")
+                # st.write(f"**Archive Status:** {archive_status}")
+                # st.write(f"**Archive Date:** {archive_date}")
+                st.write(f"**Functional Role:** {fr_name} {newline}"
+                f"**Warehouse:** {wh_name} {newline}"
+                f"**Users:** {users} {newline}"
+                f"**Date Created:** {date_created} {newline}"
+                f"**Archive Status:** {archive_status} {newline}"
+                f"**Archive Date:** {archive_date}"
+                )
 
             with col2:
+                st.write("")
+                st.write("")
+                st.write("")
+                st.write("")
+                st.write("")
+                st.write("")
+                st.write("")
                 if st.button("Delete Environment", key = environment):
                     delete_statements = helpers.delete_environment(environment)
                     for statement in delete_statements:
@@ -71,6 +91,10 @@ with environment_management:
                             yaml.dump(data, file)
                         st.experimental_rerun()
 
+            st.divider()
+
 
 with environment_test:
-    print("hi")
+    st.write("")
+    st.write("")
+    st.write(f"**Under Construction**")
