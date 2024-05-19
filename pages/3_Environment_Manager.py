@@ -12,7 +12,7 @@ import yaml
 # secrets management
 from dotenv import load_dotenv
 
-load_dotenv("/Users/danageorge/Documents/Hakkoda Github/Trusted-Research-Environment/environments/.env")
+load_dotenv("/Users/danageorge/Documents/Hakkoda_Github/Trusted-Research-Environment/environments/.env")
 
 username = os.getenv("username")
 password = os.getenv("password")
@@ -34,7 +34,7 @@ object_status = "not ran"
 with environment_management:
     environments = [ f for f in os.listdir("environments/") if f.endswith('.yaml') ]
     if len(environments) == 0:
-        st.write("**No Environments Detected. Please Create an Environment to Get Started**")
+        st.write("**No Environments Detected. Please create an environment to get started.**")
     else:
         for environment in environments:
             db_name, fr_name, wh_name, users, date_created, archive_status, archive_date = helpers.read_data(environment)

@@ -12,7 +12,7 @@ import yaml
 # secrets management
 from dotenv import load_dotenv
 
-load_dotenv("/Users/danageorge/Documents/Hakkoda Github/Trusted-Research-Environment/environments/.env")
+load_dotenv("/Users/danageorge/Documents/Hakkoda_Github/Trusted-Research-Environment/environments/.env")
 
 username = os.getenv("username")
 password = os.getenv("password")
@@ -25,7 +25,6 @@ st.image('frostbanner.png', width = 300)
 st.image('frostlogo.png', width = 300)
 st.caption("Trusted Research Environment Set Up Tool")
 
-# use this function to generate all queries needed for object stand-up and return them as a list
 def object_query_generation():
     ## this function cycles through all schemas under our chosen database and generates queries for db, schema, table and FR creation
     object_queries = ["USE ROLE SYSADMIN"]
@@ -38,15 +37,54 @@ def object_query_generation():
     for schema in source_schemas:
         schema_query = objects.schema_standup_query_gen(schema, environment_name)
         object_queries.append(schema_query)
-        tables = table_dictionary[f"{source_db}.{schema}"]
         # tables = globals()[f"{schema}_tables"]
+
+        tables = table_dictionary[f"{source_db}.{schema}"]
+        object_queries.append("USE ROLE DATA_ADMIN")
         for table in tables:
             table_query = objects.table_standup_query_gen(table, environment_name, schema, source_db, column_dictionary[f"{table}"])
             object_queries.append(table_query)
+
     object_queries.append("USE ROLE SECURITYADMIN")
     functional_role_query = objects.functional_role_standup_query_gen(fr_name) #generate functional role creation query
     object_queries.append(functional_role_query)
     return object_queries
+
+# # use this function to generate all queries needed for object stand-up and return them as a list
+# def object_query_generation():
+#     ## this function cycles through all schemas under our chosen database and generates queries for db, schema, table and FR creation
+#     object_queries = ["USE ROLE SYSADMIN"]
+#     object_query_table = ["USE ROLE DATA_ADMIN"]
+#     environment_name, envrionment_query = objects.db_standup_query_gen(research_group_name, research_project) #generate database create statement
+#     object_queries.append(envrionment_query)
+
+#     warehouse_query = objects.warehouse_standup_query_gen(wh_name, wh_size)
+#     object_queries.append(warehouse_query)
+
+#     for schema in source_schemas:
+#         schema_query = objects.schema_standup_query_gen(schema, environment_name)
+#         object_queries.append(schema_query)
+#         tables = table_dictionary[f"{source_db}.{schema}"]
+#         # tables = globals()[f"{schema}_tables"]
+#         # for table in tables:
+#         #     table_query = objects.table_standup_query_gen(table, environment_name, schema, source_db, column_dictionary[f"{table}"])
+#         #     object_query_table.append(table_query)
+
+#     for i in tables:
+#             columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {i}"))["column_name"].tolist()
+#             source_columns = st.multiselect(label = f"Source Columns From Table: {i}", options = columns)
+#             column_dictionary[f"{i}"] = source_columns
+    
+#     for table in tables:
+#         column_dictionary = {}
+#         table_query = objects.table_standup_query_gen(table, environment_name, schema, source_db, column_dictionary = {f"{table}"})
+#         object_queries.append(schema_query)
+#         tables = table_dictionary[f"{source_db}.{schema}"]
+
+#     object_queries.append("USE ROLE SECURITYADMIN")
+#     functional_role_query = objects.functional_role_standup_query_gen(fr_name) #generate functional role creation query
+#     object_queries.append(functional_role_query)
+#     return object_queries
 
 # use this function to generate all queries needed for grant stand-up and return them as a list
 def privilege_query_generation():
@@ -111,7 +149,7 @@ with environment_creation:
         print(tables)
         for i in tables:
             columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {i}"))["column_name"].tolist()
-            source_columns = st.multiselect(label = f"Source Columns From Table: {i}", options= columns)
+            source_columns = st.multiselect(label = f"Source Columns From Table: {i}", options = columns)
             column_dictionary[f"{i}"] = source_columns
         print(column_dictionary)
 
@@ -124,7 +162,7 @@ with object_standup:
     if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0:
         object_status = "ran"
         object_queries = object_query_generation()
-        st.title("Research Environment Object Query Standup and Execution")
+        st.subheader("Research Environment Object Query Standup and Execution")
 
         st.write("**Please review the following queries. Ensure they align with the environment you would like to stand up.**")
         for query in object_queries:
@@ -134,13 +172,13 @@ with object_standup:
             helpers.save_env(environment_name, fr_name, wh_name, users, date.today(), "False")
             st.table(object_queries_df)
             run_variable = "exists"
-            st.write("**Please ensure all queries successfully ran before continuing.**")
+            st.write("**Please use the second column 'Status' to confirm all queries successfully ran before continuing.**")
     else:
         st.write("**Please fill out the :blue[Environment Creation] tab before moving to this page.**")
 
 with grant_setup:
     if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0 and object_status == "ran":
-        st.header("Research Environment Grant Query Standup and Execution")
+        st.subheader("Research Environment Grant Query Standup and Execution")
         try:
             st.write("**Please review the following queries and ensure they align with the grants you need for your environment.**")
             privilege_queries = privilege_query_generation()

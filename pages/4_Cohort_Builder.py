@@ -9,11 +9,12 @@ import os
 from datetime import date
 import yaml
 from streamlit_dynamic_filters import DynamicFilters
+from streamlit import session_state
 
 # secrets management
 from dotenv import load_dotenv
 
-load_dotenv("/Users/danageorge/Documents/Hakkoda Github/Trusted-Research-Environment/environments/.env")
+load_dotenv("/Users/danageorge/Documents/Hakkoda_Github/Trusted-Research-Environment/environments/.env")
 
 username = os.getenv("username")
 password = os.getenv("password")
@@ -36,41 +37,90 @@ st.caption("Trusted Research Environment Set Up Tool")
 # Find all environments set up through Frost
 
 session = helpers.create_snowpark_session(username, password, account, role, warehouse)
+
+if 'source_db' not in st.session_state:
+    st.session_state.source_db = {}
+if 'source_schemas' not in st.session_state:
+    st.session_state.source_schemas = {}
+if 'source_tables' not in st.session_state:
+    st.session_state.source_tables = {}
+if 'source_columns' not in st.session_state:
+    st.session_state.source_columns = {}
+
+
 cohort_builder, cohort_check = st.tabs(["Cohort Builder", "Cohort Check"])
 object_status = "not ran"
 
 with cohort_builder:
     helpers.execute_sql(session, "USE ROLE SYSADMIN")
+    st.subheader('Name Your Cohort')
+    cohort_name = st.text_input(label = "Cohort Name") # No spaces
+    ch_name = f"FR_{cohort_name.upper()}"
+    st.subheader('Choose Your TRE, Schema, Tables and Columns')
     # Choose environment/database
     environments = [ f for f in os.listdir("environments/") if f.endswith('.yaml') ]
     if len(environments) == 0:
          st.write("**No Environments Detected. Please use the Environment Builder Tab to Get Started.**")
     else:
-        dbs = st.selectbox(label = "Trusted Research Environment", options = helpers.strip_yaml(environments))
+        source_db = st.selectbox(label = "Trusted Research Environment", options = helpers.strip_yaml(environments))
         table_dictionary = {}
 
-    # # Choose table
-    # table_options = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES"))["name"].tolist()
-    # tables = st.selectbox(label = "Tables", options = table_options)
-    # # Choose columns
-    # column_options = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS"))["name"].tolist()
-    # columns = st.selectbox(label = "Columns", options = column_options)
-
     # schema selection wizard
-    if len(dbs) > 0:
-        schemas = pd.DataFrame(helpers.execute_sql(session, f"SHOW SCHEMAS IN DATABASE {dbs}"))["name"].tolist()
-        source_schemas = st.multiselect(label = "Schemas", options = schemas)
-
-    # Load data from table to research database
+    if len(source_db) > 0:
+        schemas = pd.DataFrame(helpers.execute_sql(session, f"SHOW SCHEMAS IN DATABASE {source_db}"))["name"].tolist()
+        source_schemas = st.multiselect(label = "Source Schemas", options = schemas)
 
     # table selection wizard
     if len(source_schemas) > 0:
         table_dictionary = {}
         for i in source_schemas:
-            tables = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN SCHEMA {dbs}.{i}"))["name"].tolist()
-            tables = [f"{dbs}.{i}." + s for s in tables]
-            source_tables = st.multiselect(label = f"Source Tables From Schema: {dbs}.{i}", options= tables)
-            table_dictionary[f"{dbs}.{i}"] = source_tables
+            tables = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN SCHEMA {source_db}.{i}"))["name"].tolist()
+            tables = [f"{source_db}.{i}." + s for s in tables]
+            source_tables = st.multiselect(label = f"Source Tables From Schema: {source_db}.{i}", options = tables)
+            table_dictionary[f"{source_db}.{i}"] = source_tables
+        
+    # column selection wizard
+    if len(table_dictionary) > 0:
+        #st.markdown("""---""")
+        #st.write("Select columns here")
+        #st.markdown("""---""")
+        column_dictionary = {}
+        tables = []
+        for i in source_schemas:
+            schema = f"{source_db}.{i}"
+            tables.extend(table_dictionary[schema])
+        print(tables)
+        for i in tables:
+            columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {i}"))["column_name"].tolist()
+            source_columns = st.multiselect(label = f"Source Columns From Table: {i}", options = columns)
+            #column_dictionary[f"{i}"] = source_columns
+        #print(column_dictionary)
+        st.session_state.source_db = source_db
+        st.session_state.source_schemas = source_schemas
+        st.session_state.source_tables = source_tables
+        st.session_state.source_columns = source_columns
+
+    st.subheader('Choose Your Cohort Details')
+
+    # dynamic filter wizard
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        # find data set columns to create filters
+        if len(st.session_state.source_columns) > 0:
+            unique_col_vals = {}
+            tables = []
+            for i in st.session_state.source_columns:
+                #filter[f"{i}"] = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE"))["name"].tolist()
+                helpers.execute_sql(session, "USE ROLE FR_QUEENS_QUEENSPROJ")
+                filter_options = pd.DataFrame(helpers.execute_sql(session, f"SELECT DISTINCT {i} FROM {st.session_state.source_db}"))["name"].tolist()
+                filter_options = filter_options.insert(0, "Select All")
+                filter[f"{i}"] = st.multiselect(label = f"{i}", options = filter_options) # To be given access
+                #if "Select All" in filter[f"{i}"]:
+                #    filter[f"{i}"] = filter_options
+
+        else:
+            st.write("Please choose your TRE, Schema, Tables and Columns")
+
 
     # # table selection wizard
     # if len(source_schemas) > 0:

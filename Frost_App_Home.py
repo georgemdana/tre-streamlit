@@ -60,6 +60,7 @@ def frosthomepage():
 def main():
     ## App Start
     ## App Start
+    st.set_page_config(layout="wide")
     st.image('frostbanner.png', width = 300)
     st.image('frostlogo.png', width = 300)
     frosthomepage()
