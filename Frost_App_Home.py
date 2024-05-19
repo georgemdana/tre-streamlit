@@ -35,7 +35,7 @@ def frosthomepage():
         Frost is a self service tool to help secure your data to conduct research at scale. Giving you the options to choose your warehouse, database, schemas, users and accessibility to build out your research cohorts, safely. Here are just a few benefits of Frost:
 
         - Security
-        - Easy of Access
+        - Ease of Access
         - Collaboration
         - Scale
         - Transparency
