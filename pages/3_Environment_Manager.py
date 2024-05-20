@@ -37,9 +37,15 @@ with environment_management:
         st.write("**No Environments Detected. Please create an environment to get started.**")
     else:
         col1, col2, col3 = st.columns(3)
-        col3.markdown("**:red[Trusted Research Environment Count: " + str(len(set(environments))) + "]**")
-        st.write("")
-        
+        col3.markdown("**Total TR Environments: :red[" + str(len(set(environments))) + "]**")
+        # col3.write(f"{tre_count_header :>30}")
+        # col3.write(f"'{:>30}'.format({tre_count_header})")
+
+        # with col3:
+        #     tre_count_header = "**Total TR Environments: :red[" + str(len(set(environments))) + "]**"
+        #     rightalign = ":>25"
+        #     st.write(f"{Total TR Environments: " + str(len(set(environments))) + ": >25}")
+
         for environment in environments:
             db_name, fr_name, wh_name, users, date_created, archive_status, archive_date = helpers.read_data(environment)
 

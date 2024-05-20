@@ -25,6 +25,7 @@ st.image('frostbanner.png', width = 300)
 st.image('frostlogo.png', width = 300)
 st.caption("Trusted Research Environment Set Up Tool")
 
+# use this function to generate all queries needed for object stand-up and return them as a list
 def object_query_generation():
     ## this function cycles through all schemas under our chosen database and generates queries for db, schema, table and FR creation
     object_queries = ["USE ROLE SYSADMIN"]
@@ -96,15 +97,17 @@ def privilege_query_generation():
 
 session = helpers.create_snowpark_session(username, password, account, role, warehouse)
 environment_creation, object_standup, grant_setup = st.tabs(["Environment Creation", "Object Creation", "Grant Set Up"])
+environment_creator = "not ran"
 object_status = "not ran"
+grant_status = "not ran"
 
 with environment_creation:
     helpers.execute_sql(session, "USE ROLE SYSADMIN")
     research_group_name = st.text_input(label = "Research Group Name") # No spaces
     research_project = st.text_input(label = "Research Project Name") # No spaces
-    fr_name = f"FR_{research_group_name.upper()}_{research_project.upper()}"
-    wh_name = f"WH_{research_group_name.upper()}_{research_project.upper()}"
-    environment_name = f"{research_group_name.upper()}_{research_project.upper()}_TRE"
+    fr_name = f"FR_TRE_{research_group_name.upper()}_{research_project.upper()}"
+    wh_name = f"WH_TRE_{research_group_name.upper()}_{research_project.upper()}"
+    environment_name = f"TRE_{research_group_name.upper()}_{research_project.upper()}"
     
     # fetch desired warehouse size
     wh_sizes = ["XSMALL", "SMALL", "MEDIUM", "LARGE", "XLARGE", "XXLARGE", "XXXLARGE", "X4LARGE", "X5LARGE", "X6LARGE"]
@@ -113,6 +116,7 @@ with environment_creation:
     # fetch privileges needed for users
     privileges_options = ["SELECT", "INSERT", "UPDATE", "DELETE", "REFERENCES", "ALTER", "USAGE", "OWNERSHIP"]
     privileges = st.multiselect(label = "Table Privileges", options = privileges_options)
+    #st.session_state.privileges = st.multiselect(label = "Table Privileges", options = privileges_options)
 
     # fetch users needed for research environment
     users_options = pd.DataFrame(helpers.execute_sql(session, f"SHOW USERS"))["name"].tolist()
@@ -157,10 +161,10 @@ with environment_creation:
     if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0:
         st.write("    ")
         st.write("**Wizard is successfully filled out. Please continue to the :blue[Object Creation tab.]**")
+        environment_creator = "ran"
 
 with object_standup:
-    if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0:
-        object_status = "ran"
+    if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0 and environment_creator == "ran":
         object_queries = object_query_generation()
         st.subheader("Research Environment Object Query Standup and Execution")
 
@@ -172,28 +176,85 @@ with object_standup:
             helpers.save_env(environment_name, fr_name, wh_name, users, date.today(), "False")
             st.table(object_queries_df)
             run_variable = "exists"
-            st.write("**Please use the second column 'Status' to confirm all queries successfully ran before continuing.**")
+            st.write("**Please use the second column :blue['Status'] to confirm all queries successfully ran before continuing.**")
+            object_status = "ran"
     else:
         st.write("**Please fill out the :blue[Environment Creation] tab before moving to this page.**")
 
+
 with grant_setup:
     if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0 and object_status == "ran":
+        grant_status = "ran"
+        privilege_queries = privilege_query_generation()
         st.subheader("Research Environment Grant Query Standup and Execution")
-        try:
-            st.write("**Please review the following queries and ensure they align with the grants you need for your environment.**")
-            privilege_queries = privilege_query_generation()
-        except:
-            st.write("**No queries found, please ensure you've run all object standup queries before moving to this page.**")
-            privilege_queries = []
+
+        st.write("**Please review the following queries and ensure they align with the grants you need for your environment.**")
         for query in privilege_queries:
             st.write(query)
-        if st.button("Run Snowflake Grants Scripts"):
-            privilege_queries = privilege_query_generation()
+            
+        if st.button("Run Snowflake Grant Scripts"):
             grants_queries_df = helpers.query_executions(session = session, queries = privilege_queries)
             st.table(grants_queries_df)
-            st.session_state.button2_clicked = True
+            grant_run_variable = "exists"
+
     else:
         st.write("**Please fill out the :blue[Object Creation tab] before moving to Grant Set Up**")
+
+
+    #     try:
+    #         st.write("**Please review the following queries and ensure they align with the grants you need for your environment.**")
+    #         #privilege_queries = []
+    #         privilege_queries = privilege_query_generation()
+    #     except:
+    #         st.write("**No queries found, please ensure you've run all object standup queries before moving to this page.**")
+    #         #privilege_queries = []
+    #     for query in privilege_queries:
+    #         st.write(query)
+    #     if st.button("Run Snowflake Grants Scripts"):
+    #         #privilege_queries = []
+    #         privilege_queries = privilege_query_generation()
+    #         grants_queries_df = helpers.query_executions(session = session, queries = privilege_queries)
+    #         st.table(grants_queries_df)
+    #         st.session_state.button2_clicked = True
+    # else:
+    #     st.write("**Please fill out the :blue[Object Creation tab] before moving to Grant Set Up**")
+
+# with grant_setup:
+#     if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0 and object_status == "ran":
+#         st.subheader("Research Environment Grant Query Standup and Execution")
+#         st.write("**Please review the following queries and ensure they align with the grants you need for your environment.**")
+#         privilege_queries = privilege_query_generation()
+    
+#         for query in privilege_queries:
+#             st.write(query)
+
+#         if st.button("Run Snowflake Grants Scripts"):
+#             privilege_queries = privilege_query_generation()
+#             grants_queries_df = helpers.query_executions(session = session, queries = privilege_queries)
+#             st.table(grants_queries_df)
+#             st.session_state.button2_clicked = True
+#     else:
+#         st.write("**Please fill out the :blue[Object Creation tab] before moving to Grant Set Up**")
+
+
+# with grant_setup:
+#     if len(research_group_name) > 0 and len(research_project) > 0 and len(wh_size) > 0 and len(users) > 0 and len(source_db) > 0 and len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(column_dictionary) > 0 and object_status == "ran":
+#         st.subheader("Research Environment Grant Query Standup and Execution")
+#         try:
+#             st.write("**Please review the following queries and ensure they align with the grants you need for your environment.**")
+#             privilege_queries = privilege_query_generation()
+#         except:
+#             st.write("**No queries found, please ensure you've run all object standup queries before moving to this page.**")
+#             privilege_queries = []
+#         for query in privilege_queries:
+#             st.write(query)
+#         if st.button("Run Snowflake Grants Scripts"):
+#             privilege_queries = privilege_query_generation()
+#             grants_queries_df = helpers.query_executions(session = session, queries = privilege_queries)
+#             st.table(grants_queries_df)
+#             st.session_state.button2_clicked = True
+#     else:
+#         st.write("**Please fill out the :blue[Object Creation tab] before moving to Grant Set Up**")
 
 # with environment_management:
 #     environments = [ f for f in os.listdir("environments/") if f.endswith('.yaml') ]
