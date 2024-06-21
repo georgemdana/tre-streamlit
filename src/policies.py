@@ -26,7 +26,10 @@ class policies:
 
     def fr_assignment_statement_gen(privileges_statements, fr_name, users):
         for user in users:
-            fr_assignment_query = f"GRANT ROLE {fr_name} TO USER {user}"
+            role_statement = f"USE ROLE SECURITYADMIN"
+            privileges_statements.append(role_statement)
+            quotes = '"'            
+            fr_assignment_query = f"GRANT ROLE {fr_name} TO USER {quotes}{user}{quotes}"
             privileges_statements.append(fr_assignment_query)
         return privileges_statements
     

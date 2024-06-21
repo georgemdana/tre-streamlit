@@ -37,7 +37,9 @@ with environment_management:
         st.write("**No Environments Detected. Please create an environment to get started.**")
     else:
         col1, col2, col3 = st.columns(3)
-        col3.markdown("**Total TR Environments: :red[" + str(len(set(environments))) + "]**")
+        #boxed_text = f"### **{ 'Total TREs: :red[" + 'str(len(set(environments)))' + "]'}**"
+        #col1.markdown(boxed_text, unsafe_allow_html=True)
+        col1.markdown("**Total TREs: :red[" + str(len(set(environments))) + "]**")
         # col3.write(f"{tre_count_header :>30}")
         # col3.write(f"'{:>30}'.format({tre_count_header})")
 

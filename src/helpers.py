@@ -2,6 +2,7 @@ from snowflake.snowpark import Session
 import yaml
 import streamlit as st
 import pandas as pd
+from streamlit_dynamic_filters import DynamicFilters
 
 class helpers:
     def create_snowpark_session(username, password, account, role = "ACCOUNTADMIN", warehouse = "COMPUTE_WH"):
@@ -85,9 +86,66 @@ class helpers:
             'Status': object_status
         })
         return queries_df
+
+    def grant_query_executions(session, queries):
+        grant_status = []
+        for i in queries:
+            try:
+                helpers.execute_sql(session, i)
+                grant_status.append("Query Succeeded")
+            except Exception as e:
+                grant_status.append("Query Failed")
+        grant_queries_df = pd.DataFrame({
+            'Query': queries,
+            'Status': grant_status
+        })
+        return grant_queries_df
     
     def strip_yaml(dataframe):
         chars = '.yaml'
         stripped = ""
         stripped = [sub.replace(chars, '') for sub in dataframe]
         return stripped 
+
+    def display_df_and_return(df, columns):
+        dynamic_filters = DynamicFilters(df, filters=columns)
+        dynamic_filters.display_filters(location='columns', num_columns=2, gap='small')
+        dynamic_filters.display_df()
+        return df
+
+    def create_new_sf_table(session, table_name, columns, database, schema): #where columns is a dictionary including data types
+        # Create the table
+        role_query = ["USE ROLE ACCOUNTADMIN"]
+        database_query = [f"USE DATABASE {database}"]
+        schema_query = [f"USE SCHEMA {schema}"]
+        create_table_sql = f"CREATE TABLE {table_name} ("
+        for column, data_type in columns.items():
+            create_table_sql += f"{column} {data_type}, "
+        create_table_sql = create_table_sql[:-2] + ");"
+        create_new_table_sql = role_query.append(create_table_sql)
+
+        helpers.execute_sql(session, create_new_table_sql)
+        
+        comment = f"New Cohort Table Created in {table_name}."
+        return comment
+
+    def create_table_in_snowflake(session, table_name, database, schema_name, cols):
+        try:
+            session.cursor().execute(f"CREATE TABLE {database}.{schema_name}.{table_name} ({', '.join([f'{col} VARCHAR' for col in cols])});")
+            st.write(f"Table {database}.{schema_name}.{table_name} created successfully!")
+        except Exception as e:
+            st.write(f"Error creating table in Snowflake: {e}")
+
+    # Create a function to load a Pandas DataFrame into Snowflake
+    def load_df_to_snowflake(session, df, table_name, schema_name):
+        try:
+            df.to_sql(
+                name=table_name,
+                schema=schema_name,
+                con=session,
+                if_exists='replace',
+                index=False
+            )
+            st.write(f"Data loaded into {schema_name}.{table_name} successfully!")
+        except Exception as e:
+            st.write(f"Error loading data into Snowflake: {e}")

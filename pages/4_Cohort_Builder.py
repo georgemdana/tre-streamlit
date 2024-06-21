@@ -27,17 +27,11 @@ st.image('frostbanner.png', width = 300)
 st.image('frostlogo.png', width = 300)
 st.caption("Trusted Research Environment Set Up Tool")
 
-# use this function to generate all queries needed for object stand-up and return them as a list
-# Steps
-# Choose your environment
-# Choose your tables
-# Filter Tables to match your cohort
-# Option to load entire table
-
-# Find all environments set up through Frost
-
 session = helpers.create_snowpark_session(username, password, account, role, warehouse)
-
+source_tables = []
+source_columns = []
+tables = []
+filtered_cohort_build = ""
 if 'source_db' not in st.session_state:
     st.session_state.source_db = {}
 if 'source_schemas' not in st.session_state:
@@ -46,80 +40,360 @@ if 'source_tables' not in st.session_state:
     st.session_state.source_tables = {}
 if 'source_columns' not in st.session_state:
     st.session_state.source_columns = {}
+if 'source_roles' not in st.session_state:
+    st.session_state.source_roles = {}
+if 'cohort_status' not in st.session_state:
+    st.session_state.cohort_status = {}
+if 'filter_state' not in st.session_state:
+    st.session_state['filter_state'] = {}
 
 
 cohort_builder, cohort_check = st.tabs(["Cohort Builder", "Cohort Check"])
-object_status = "not ran"
 
 with cohort_builder:
     helpers.execute_sql(session, "USE ROLE SYSADMIN")
     st.subheader('Name Your Cohort')
     cohort_name = st.text_input(label = "Cohort Name") # No spaces
     ch_name = f"FR_{cohort_name.upper()}"
-    st.subheader('Choose Your TRE, Schema, Tables and Columns')
+    tb_name = f"TRE_{cohort_name.upper()}"
+    if len(cohort_name) > 0:
+        st.subheader('Choose Your TRE, Schema, Tables and Columns')
     # Choose environment/database
-    environments = [ f for f in os.listdir("environments/") if f.endswith('.yaml') ]
-    if len(environments) == 0:
-         st.write("**No Environments Detected. Please use the Environment Builder Tab to Get Started.**")
-    else:
-        source_db = st.selectbox(label = "Trusted Research Environment", options = helpers.strip_yaml(environments))
-        table_dictionary = {}
+        environments = [ f for f in os.listdir("environments/") if f.endswith('.yaml') ]
+        if len(environments) == 0:
+            st.write("**No Environments Detected. Please use the Environment Builder Tab to Get Started.**")
+        else:
+            source_db = st.selectbox(label = "Trusted Research Environment", options = helpers.strip_yaml(environments))
+            table_dictionary = {}
 
-    # schema selection wizard
-    if len(source_db) > 0:
-        schemas = pd.DataFrame(helpers.execute_sql(session, f"SHOW SCHEMAS IN DATABASE {source_db}"))["name"].tolist()
-        source_schemas = st.multiselect(label = "Source Schemas", options = schemas)
+        # schema selection wizard
+        if len(source_db) > 0:
+            schemas = pd.DataFrame(helpers.execute_sql(session, f"SHOW SCHEMAS IN DATABASE {source_db}"))["name"].tolist()
+            source_schemas = st.multiselect(label = "Source Schemas", options = schemas)
 
-    # table selection wizard
-    if len(source_schemas) > 0:
-        table_dictionary = {}
-        for i in source_schemas:
-            tables = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN SCHEMA {source_db}.{i}"))["name"].tolist()
-            tables = [f"{source_db}.{i}." + s for s in tables]
-            source_tables = st.multiselect(label = f"Source Tables From Schema: {source_db}.{i}", options = tables)
-            table_dictionary[f"{source_db}.{i}"] = source_tables
+        # table selection wizard
+        if len(source_db) > 0 and len(source_schemas) > 0:
+            table_dictionary = {}
+            for i in source_schemas:
+                tables = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN SCHEMA {source_db}.{i}"))["name"].tolist()
+                tables = [f"{source_db}.{i}." + s for s in tables]
+                #source_tables = st.multiselect(label = f"Source Tables From Schema: {source_db}.{i}", options = tables)
+                source_tables = st.selectbox(label = f"Source Tables", options = tables)
+                source_tables_dict = []
+                table_dictionary[f"{source_db}.{i}"] = source_tables_dict
+                table_status = "ran"
+            
+        # column selection wizard
+        if len(source_db) > 0 and len(source_schemas) > 0 and table_status == "ran":
+            column_dictionary = {}
+            #tables = []
+            roles = []
+            for i in source_schemas:
+                schema = f"{source_db}.{i}"
+                tables.extend(table_dictionary[schema])
+            print(tables)
+            for i in tables:
+                columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {i}"))["column_name"].tolist()
+                source_columns = st.multiselect(label = f"Source Columns From Table: {i}", options = columns)
+                column_dictionary[f"{i}"] = source_columns
+            print(column_dictionary)
+
+        # User Role selection wizard
+            roles = pd.DataFrame(helpers.execute_sql(session, f"SHOW ROLES"))["name"].tolist()
+            source_roles = st.selectbox(label = f"User Role", options = roles)
+
+        # Save to session
+        if len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(source_roles) > 0:
+            st.session_state.source_db = source_db
+            st.session_state.source_schemas = source_schemas
+            st.session_state.source_tables = source_tables
+            st.session_state.source_columns = source_columns
+            st.session_state.source_roles = source_roles
+            st.session_state.cohort_status = "ran"    
+
+
+# Dynamic Filter Wizard
+        environments = [ f for f in os.listdir("environments/") if f.endswith('.yaml') ]
+        if len(environments) == 0:
+            st.write("**No Environments Detected. Please create an environment to get started.**")
+        else:
+            if len(st.session_state.source_columns) > 0 and len(st.session_state.source_roles) > 0 and st.session_state.cohort_status == "ran":
+                st.header("Filters:")
+
+        # # Update the session state with the selected columns
+        # st.session_state.filter_state['table'] = st.session_state.source_tables
+        # st.session_state.filter_state['columns'] = st.session_state.source_columns
+        # st.write(st.session_state.filter_state['table'])
+
+        for table in st.session_state.source_tables:
+            helpers.execute_sql(session, f"USE ROLE {st.session_state.source_roles}")
+            helpers.execute_sql(session, f"USE WAREHOUSE {warehouse}")
+            data = pd.DataFrame(helpers.execute_sql(session, f"SELECT * FROM {st.session_state.source_tables}"))
         
-    # column selection wizard
-    if len(table_dictionary) > 0:
-        #st.markdown("""---""")
-        #st.write("Select columns here")
-        #st.markdown("""---""")
-        column_dictionary = {}
-        tables = []
-        for i in source_schemas:
-            schema = f"{source_db}.{i}"
-            tables.extend(table_dictionary[schema])
-        print(tables)
-        for i in tables:
-            columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {i}"))["column_name"].tolist()
-            source_columns = st.multiselect(label = f"Source Columns From Table: {i}", options = columns)
-            #column_dictionary[f"{i}"] = source_columns
-        #print(column_dictionary)
-        st.session_state.source_db = source_db
-        st.session_state.source_schemas = source_schemas
-        st.session_state.source_tables = source_tables
-        st.session_state.source_columns = source_columns
+        filters = {}
+        for col in st.session_state.source_columns:
+            unique_values = data[col].unique().tolist()
+            unique_values.insert(0, "All")
+            selected_value = st.multiselect(col, [''] + unique_values)
+            unique_values.remove("All")
+            if "All" in selected_value:
+                selected_value = list(unique_values)
+            if selected_value:
+                filters[col] = selected_value
 
-    st.subheader('Choose Your Cohort Details')
+        if st.button("Apply Filters and Preview Cohort"):
+            # Create a Snowflake query with filters
+            query = f"SELECT * FROM {st.session_state.source_tables}"
+            if any(filters.values()):
+                query += " WHERE "
+                for col, filter_val in filters.items():
+                    if filter_val:
+                        if isinstance(filter_val, list):
+                            # Use a list in the WHERE clause for multiple values
+                            val_list = ', '.join(f"'{val}'" for val in filter_val)
+                            query += f"{col} IN ({val_list}) AND "
+                        else:
+                            query += f"{col} = '{filter_val}' AND "
+                query = query.rstrip(" AND ")
+                   
 
-    # dynamic filter wizard
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        # find data set columns to create filters
-        if len(st.session_state.source_columns) > 0:
-            unique_col_vals = {}
-            tables = []
-            for i in st.session_state.source_columns:
+            result = helpers.execute_sql(session, query)
+            filtered_cohort = pd.DataFrame(result)
+            st.write(filtered_cohort)
+            filtered_cohort_build = "ran"
+
+        if filtered_cohort_build == "ran":
+            if st.button("Create New Cohort"):
+                # Create a new table in Snowflake
+                cols = list(filtered_cohort.columns)
+                helpers.create_table_in_snowflake(session, tb_name, "TRE", "PUBLIC", cols)
+
+                # Load the Pandas DataFrame into Snowflake
+                helpers.load_df_to_snowflake(session, filtered_cohort, st.session_state.source_tables, st.session_state.source_schemas)
+
+                # column_dtype_dict = filtered_cohort.dtypes.astype(str).to_dict()
+                # create_new_sf_table(session, tb_name, column_dtype_dict, "TRE", "PUBLIC")
+                st.write(f"New Cohort Created in {st.session_state.source_db} as {tb_name}")
+
+    else:
+        st.write("Try Again")
+
+        
+# ############ ------------------------------------------------------------------------------------------------------------------------------------------------
+# # dynamic filter wizard
+#     environments = [ f for f in os.listdir("environments/") if f.endswith('.yaml') ]
+#     if len(environments) == 0:
+#         st.write("**No Environments Detected. Please create an environment to get started.**")
+#     else:
+#         if len(st.session_state.source_columns) > 0 and len(st.session_state.source_roles) > 0 and st.session_state.cohort_status == "ran":
+#             st.subheader(f"Filters")
+#             for environment in environments:
+#                 db_name, fr_name, wh_name, users, date_created, archive_status, archive_date = helpers.read_data(environment)
+
+#             # Get the list of columns from Snowflake
+#             columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE TRE_DISCHARGE_DISCHARGE_PROJ.PUBLIC.DISCHARGE_PROCESSED"))["column_name"].tolist()
+#             #cursor.execute("SHOW COLUMNS IN TABLE your_table_name")
+#             #columns = [row[0] for row in cursor.fetchall()]
+
+#             # Create a dropdown menu for selecting columns
+#             #columns = source_tables.columns.tolist()
+#             #selected_columns = st.multiselect("Select columns for filtering:", source_columns, default=columns[:3])
+
+#             # Create two columns in Streamlit
+#             col1, col2 = st.columns(2)
+
+#             # Create dynamic columns for filters in col1
+#             with col1:
+#                 for table in tables:
+#                     helpers.execute_sql(session, f"USE ROLE {source_roles}")
+#                     helpers.execute_sql(session, f"USE WAREHOUSE {warehouse}")
+#                     data = pd.DataFrame(helpers.execute_sql(session, f"SELECT * FROM {table}"))
+#                 st.header("Filters:")
+#                 filters = {}
+#                 for col in columns:
+#                     unique_values = data[col].unique().tolist()
+#                     unique_values.insert(0, "All")
+#                     selected_value = st.multiselect(col, [''] + unique_values)
+#                     if "All" in selected_value:
+#                         selected_value = list(unique_values)
+#                     if selected_value:
+#                         filters[col] = selected_value
+
+#             # Create a button to apply the filters in col2
+#             with col2:
+#                 if st.button("Apply Filters"):
+#                     # Create a Snowflake query with filters
+#                     query = "SELECT * FROM TRE_DISCHARGE_DISCHARGE_PROJ.PUBLIC.DISCHARGE_PROCESSED"
+#                     if any(filters.values()):
+#                         query += " WHERE "
+#                         for col, filter_val in filters.items():
+#                             if filter_val:
+#                                 query += f"{col} = '{filter_val}' AND "
+#                         query = query.rstrip(" AND ")
+#                     result = helpers.execute_sql(session, query)
+#                     df = pd.DataFrame(result, columns=[desc[0] for desc in cursor.description])
+#                     st.write(df)
+
+############ ------------------------------------------------------------------------------------------------------------------------------------------------
+
+            ## ----------------------------------------
+
+            # # Create dynamic columns based on the selected columns
+            # dynamic_cols = []
+            # for col in selected_columns:
+            #     dynamic_cols.append(st.columns(f"Filter {col}"))
+            #     filter_val = dynamic_cols[-1].text_input(f"Filter {col}:", value="")
+            #     if filter_val:
+            #         filter_query = f"SELECT * FROM {source_tables} WHERE {col} = '{filter_val}'"
+            #         cursor.execute(filter_query)
+            #         result = cursor.fetchall()
+            #         dynamic_cols[-1].write(result)
+
+            # # Run the app
+            # if st.button("Run"):
+            #     st.write("Filters applied!")
+
+           # ---------------------------
+            
+            # for schemas in source_schemas:
+            #     schema = f"{source_db}.{schemas}"
+            #     tables.extend(table_dictionary[schema])
+            # print(tables)
+            # for table in tables:
+            #     helpers.execute_sql(session, f"USE ROLE {source_roles}")
+            #     helpers.execute_sql(session, f"USE WAREHOUSE {warehouse}")
+            #     data = pd.DataFrame(helpers.execute_sql(session, f"SELECT * FROM {table}"))
+
+            #     # Create a dictionary to store the filter criteria
+            #     filters = {}
+
+            #     # Create a dropdown filter for each column
+            #     for source_columns in data.columns:
+            #         unique_values = data[source_columns].unique().tolist()
+            #         unique_values.insert(0, "All")
+            #         selected_value = st.multiselect(f'Select a value for {source_columns}:', [''] + unique_values, key = {source_columns}, default = columns[:3])
+            #         if "All" in selected_value:
+            #             selected_value = list(unique_values)
+            #         if selected_value:
+            #             filters[source_columns] = selected_value
+
+            #     # Run the app
+            #     if st.button("Run"):
+            #         st.write("Filters applied!")
+
+            #     # Create a button to apply the filters
+            #     apply_filters_button = st.button('Apply Filters')
+
+            #     # Define a function to apply the filters
+            #     def apply_filters(data, filters):
+            #         filtered_data = data.copy()
+            #         for column, filter_value in filters.items():
+            #             filtered_data = filtered_data[filtered_data[column] == filter_value]
+            #         return filtered_data
+
+            #     # Apply the filters when the button is clicked
+            #     if apply_filters_button:
+            #         filtered_data = apply_filters(data, filters)
+            #         st.write(filtered_data)
+
+
+                # ---------------------------
+
+                # column_selector = st.selectbox('Select a column:', environmentdata.columns)
+                # filter_input = st.text_input('Enter a filter value:')
+                # filter_button = st.button('Apply Filter')
+
+                # def filter_data(data, column, filter_value):
+                #     filtered_data = data[data[column].str.contains(filter_value)]
+                #     return filtered_data
+
+                # if filter_button:
+                #     filtered_data = filter_data(environmentdata, column_selector, filter_input)
+                #     st.write(filtered_data)
+
+
+
+
+
+                # columns = []
+                # columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {table}"))["column_name"].tolist()
+                # environmentdata[columns] = environmentdata[columns].astype(str)
+                # dynamic_filters = DynamicFilters(environmentdata, filters=['NOTE_ID', 'CHARTTIME', 'DC_DIAGNOSIS', 'SEX', 'CHIEF_COMPLAINT', 'SERVICE', 'DISCHARGE_DISPOSITION', 'PMH_CARDIOVASCULAR_DISEASE', 'PMH_DIABETES_MELLITUS'])
+                # dynamic_filters.display_filters(location='columns', num_columns=2, gap='large')
+
+                #column_dictionary[f"_{schemas}"] = columns
+                #dynamic_filters = DynamicFilters(environmentdata, filters=columns)
+                #dynamic_filters.display_filters(location='columns', num_columns=2, gap='small')
+                # dynamic_filters.display_df()
+
+                #helpers.display_df_and_return(environmentdata, columns)
+                #filtered_data = pd.DataFrame(st.session_state['filters'])
+                # Assume 'filters' is a dictionary containing the filter settings
+                
+                #st.write(cohort_data)
+                #cohort_data = cohort_data.to_dataframe()
+
+                #cohort_data = dynamic_filters.filter_df()
+                #cohort_columns_dict = {col: str(cohort_data[col].dtype) for col in cohort_data.columns}
+                #cohort_columns_dict = {k: 'varchar' if v == 'object' else v for k, v in cohort_columns_dict.items()}
+
+                #st.write(filtered_df)
+
+                #st.write("A new table has been added to your Snowflake TRE")
+                #helpers.create_new_sf_table(session, {cohort_name}, cohort_columns_dict)
+
+        # else:
+        #     st.write(" ")
+
+############################################################# working code #################################################################
+    # # dynamic filter wizard
+    # col1, col2, col3 = st.columns(3)
+    # with col1:
+    #     # find data set columns to create filters
+    #     if len(st.session_state.source_columns) > 0 and len(st.session_state.source_roles) > 0 and st.session_state.cohort_status == "ran":
+    #         unique_col_vals = []
+    #         tables = []
+    #     for schemas in source_schemas:
+    #         schema = f"{source_db}.{schemas}"
+    #         tables.extend(table_dictionary[schema])
+    #     print(tables)
+    #     for table in tables:
+    #         columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {table}"))["column_name"].tolist()
+    #         column_dictionary[f"_{schemas}"] = columns
+    #         print(column_dictionary)
+    #         for i in column_dictionary:
+    #             st.subheader(f"Filters")
+    #             helpers.execute_sql(session, f"USE ROLE {source_roles}")
+    #             column_unique_vals[f"_{i}"] = pd.DataFrame(helpers.execute_sql(session, f"SELECT DISTINCT {i} from {table}")).tolist()
+    #             column_unique_vals[f"_{i}"] = column_unique_vals[f"_{i}"].insert(0, "Select All")
+    #             filter[f"_{i}"] = st.multiselect(label = f"Filter By: {i}", options = column_unique_vals[f"_{i}"])
+    #             column_dictionary[f"{i}"] = filter[f"_{i}"]
+    #             print(column_dictionary)
+
+            # for i in source_columns:
+            #     st.subheader(f"Filters")
+            #     column_unique_vals[f"_{i}"] = pd.DataFrame(helpers.execute_sql(session, f"SELECT DISTINCT {i} from {tables}")).tolist()
+            #     column_unique_vals[f"_{i}"] = column_unique_vals[f"_{i}"].insert(0, "Select All")
+            #     filter[f"_{i}"] = st.multiselect(label = f"Filter By: {i}", options = column_unique_vals[f"_{i}"])
+            #     column_dictionary[f"{i}"] = filter[f"_{i}"]
+            # print(column_dictionary)
+
+#            for i in st.session_state.source_columns:
                 #filter[f"{i}"] = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE"))["name"].tolist()
-                helpers.execute_sql(session, "USE ROLE FR_QUEENS_QUEENSPROJ")
-                filter_options = pd.DataFrame(helpers.execute_sql(session, f"SELECT DISTINCT {i} FROM {st.session_state.source_db}"))["name"].tolist()
-                filter_options = filter_options.insert(0, "Select All")
-                filter[f"{i}"] = st.multiselect(label = f"{i}", options = filter_options) # To be given access
+                #helpers.execute_sql(session, f"USE ROLE {st.session_state.source_roles}")
+                #column_unique_vals = pd.DataFrame(f"{st.session_state.source_tables}.{i}").unique
+                #for tables in source_tables:
+                    #column_unique_vals[f"_{i}"] = pd.DataFrame(helpers.execute_sql(session, f"SELECT DISTINCT {i} from {source_db}.{source_tables}"))[f"{i}"].tolist()
+                #column_unique_vals[f"_{i}"] = pd.DataFrame(helpers.execute_sql(session, f"SELECT DISTINCT {i} FROM {st.session_state.source_db}.{st.session_state.source_tables}"))["column_values"].tolist()
+                    #st.header(f"Filter By: {i}")
+                #filter_options = pd.DataFrame(helpers.execute_sql(session, f"SELECT DISTINCT {i} FROM {st.session_state.source_tables}")).tolist()
+                    #column_unique_vals[f"_{i}"] = column_unique_vals[f"_{i}"].insert(0, "Select All")
+                    #filter[f"_{i}"] = st.multiselect(label = f"Filter By: {i}", options = column_unique_vals[f"_{i}"])
+                #filter[f"{i}"] = st.multiselect(label = f"{i}", options = filter_options) # To be given access
                 #if "Select All" in filter[f"{i}"]:
                 #    filter[f"{i}"] = filter_options
 
-        else:
-            st.write("Please choose your TRE, Schema, Tables and Columns")
+
 
 
     # # table selection wizard
