@@ -22,7 +22,7 @@ warehouse = os.getenv("warehouse")
 
 ## App Start
 st.image('frostbanner.png', width = 300)
-st.image('frostlogo.png', width = 300)
+#st.image('frostlogo.png', width = 300)
 st.caption("Trusted Research Environment Set Up Tool")
 
 # Find all environments set up through Frost
@@ -55,6 +55,7 @@ with environment_management:
             with col1:
                 newline = '  \n'
                 #st.write(f"**Environment Name:** {environment.split('.')[0]}")
+                environment = environment.replace(" ", "_")
                 st.subheader(f":blue[{environment.split('.')[0]}]")
                 # st.write(f"**Functional Role:** {fr_name}")
                 # st.write(f"**Warehouse:** {wh_name}")

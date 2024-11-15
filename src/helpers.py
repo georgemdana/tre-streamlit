@@ -3,6 +3,7 @@ import yaml
 import streamlit as st
 import pandas as pd
 from streamlit_dynamic_filters import DynamicFilters
+from snowflake.snowpark.functions import col
 
 class helpers:
     def create_snowpark_session(username, password, account, role = "ACCOUNTADMIN", warehouse = "COMPUTE_WH"):
@@ -105,7 +106,8 @@ class helpers:
         chars = '.yaml'
         stripped = ""
         stripped = [sub.replace(chars, '') for sub in dataframe]
-        return stripped 
+        stripped2 = [sub.replace(" ", "_") for sub in stripped]
+        return stripped2
 
     def display_df_and_return(df, columns):
         dynamic_filters = DynamicFilters(df, filters=columns)
@@ -131,21 +133,40 @@ class helpers:
 
     def create_table_in_snowflake(session, table_name, database, schema_name, cols):
         try:
-            session.cursor().execute(f"CREATE TABLE {database}.{schema_name}.{table_name} ({', '.join([f'{col} VARCHAR' for col in cols])});")
+            helpers.execute_sql(session, f"CREATE TABLE IF NOT EXISTS {database}.{schema_name}.{table_name} ({', '.join([f'{col} VARCHAR' for col in cols])});")
             st.write(f"Table {database}.{schema_name}.{table_name} created successfully!")
         except Exception as e:
             st.write(f"Error creating table in Snowflake: {e}")
 
-    # Create a function to load a Pandas DataFrame into Snowflake
-    def load_df_to_snowflake(session, df, table_name, schema_name):
+    # # Create a function to load a Pandas DataFrame into Snowflake
+    # def load_df_to_snowflake(session, df, table_name, schema_name):
+    #     try:
+    #         df.to_sql(
+    #             name=table_name,
+    #             schema=schema_name,
+    #             con=session,
+    #             if_exists='replace',
+    #             index=False
+    #         )
+    #         st.write(f"Data loaded into {schema_name}.{table_name} successfully!")
+    #     except Exception as e:
+    #         st.write(f"Error loading data into Snowflake: {e}")
+
+    # Function to load a Pandas DataFrame into Snowflake using Snowpark
+    def load_df_to_snowflake(session, df, table_name, schema_name, database_name):
         try:
-            df.to_sql(
-                name=table_name,
-                schema=schema_name,
-                con=session,
-                if_exists='replace',
-                index=False
+            # Create the fully qualified table name
+            full_table_name = f"{database_name}.{schema_name}.{table_name}"
+
+            # Convert Pandas DataFrame to Snowpark DataFrame
+            snowpark_df = session.create_dataframe(df)
+            
+            # Save DataFrame as table in Snowflake
+            snowpark_df.write.save_as_table(
+                table_name=full_table_name,
+                mode="overwrite",  # This will replace the table if it already exists
             )
+
             st.write(f"Data loaded into {schema_name}.{table_name} successfully!")
         except Exception as e:
-            st.write(f"Error loading data into Snowflake: {e}")
+            st.write(f"Error loading data into Snowflake using Snowpark: {e}")

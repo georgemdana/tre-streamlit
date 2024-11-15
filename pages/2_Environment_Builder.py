@@ -22,7 +22,7 @@ warehouse = os.getenv("warehouse")
 
 ## App Start
 st.image('frostbanner.png', width = 300)
-st.image('frostlogo.png', width = 300)
+#st.image('frostlogo.png', width = 300)
 st.caption("Trusted Research Environment Set Up Tool")
 
 # use this function to generate all queries needed for object stand-up and return them as a list

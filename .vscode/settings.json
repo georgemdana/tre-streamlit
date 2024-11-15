@@ -1,0 +1,18 @@
+{
+    "python.pythonPath": "./venv_tre/bin/python",  // Update for your virtual environment
+    "python.formatting.provider": "black",         // Optional: Use Black for code formatting
+    "python.linting.enabled": true,                // Enable linting
+    "python.linting.pylintEnabled": true,          // Use pylint for linting
+    "python.linting.flake8Enabled": false,         // Set to true if you prefer flake8
+    "editor.formatOnSave": true,                   // Automatically format code on save
+    "python.testing.pytestEnabled": true,          // Enable pytest for testing
+    "terminal.integrated.env.windows": {           // Optional: For Windows
+        "PYTHONPATH": "${workspaceFolder}"
+    },
+    "terminal.integrated.env.linux": {             // Optional: For Linux
+        "PYTHONPATH": "${workspaceFolder}"
+    },
+    "terminal.integrated.env.osx": {               // Optional: For macOS
+        "PYTHONPATH": "${workspaceFolder}"
+    }
+}

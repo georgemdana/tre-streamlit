@@ -10,6 +10,7 @@ from datetime import date
 import yaml
 from streamlit_dynamic_filters import DynamicFilters
 from streamlit import session_state
+from snowflake.connector.pandas_tools import write_pandas
 
 # secrets management
 from dotenv import load_dotenv
@@ -24,13 +25,14 @@ warehouse = os.getenv("warehouse")
 
 ## App Start
 st.image('frostbanner.png', width = 300)
-st.image('frostlogo.png', width = 300)
+#st.image('frostlogo.png', width = 300)
 st.caption("Trusted Research Environment Set Up Tool")
 
 session = helpers.create_snowpark_session(username, password, account, role, warehouse)
 source_tables = []
 source_columns = []
 tables = []
+col_status = []
 filtered_cohort_build = ""
 if 'source_db' not in st.session_state:
     st.session_state.source_db = {}
@@ -46,12 +48,21 @@ if 'cohort_status' not in st.session_state:
     st.session_state.cohort_status = {}
 if 'filter_state' not in st.session_state:
     st.session_state['filter_state'] = {}
+if 'filtered_cohort' not in st.session_state:
+    st.session_state['filtered_cohort'] = {}
+
+
 
 
 cohort_builder, cohort_check = st.tabs(["Cohort Builder", "Cohort Check"])
 
 with cohort_builder:
     helpers.execute_sql(session, "USE ROLE SYSADMIN")
+    # User Role selection wizard
+    roles = pd.DataFrame(helpers.execute_sql(session, f"SHOW ROLES"))["name"].tolist()
+    roles = [item for item in roles if item.startswith("FR_")]
+    source_roles = st.selectbox(label = f"User Role", options = roles)
+    # Cohort
     st.subheader('Name Your Cohort')
     cohort_name = st.text_input(label = "Cohort Name") # No spaces
     ch_name = f"FR_{cohort_name.upper()}"
@@ -74,40 +85,42 @@ with cohort_builder:
         # table selection wizard
         if len(source_db) > 0 and len(source_schemas) > 0:
             table_dictionary = {}
+            all_tables = []
             for i in source_schemas:
                 tables = pd.DataFrame(helpers.execute_sql(session, f"SHOW TABLES IN SCHEMA {source_db}.{i}"))["name"].tolist()
                 tables = [f"{source_db}.{i}." + s for s in tables]
                 #source_tables = st.multiselect(label = f"Source Tables From Schema: {source_db}.{i}", options = tables)
-                source_tables = st.selectbox(label = f"Source Tables", options = tables)
+                source_tables = st.multiselect(label = f"Source Tables", options = tables)
+                table_dictionary[f"{i}"] = source_tables
+                all_tables.extend(source_tables)
                 source_tables_dict = []
                 table_dictionary[f"{source_db}.{i}"] = source_tables_dict
                 table_status = "ran"
             
         # column selection wizard
-        if len(source_db) > 0 and len(source_schemas) > 0 and table_status == "ran":
+        if len(source_db) > 0 and len(source_schemas) > 0 and table_status == "ran" and len(source_tables) > 0:
             column_dictionary = {}
-            #tables = []
             roles = []
+            all_columns = []
             for i in source_schemas:
                 schema = f"{source_db}.{i}"
                 tables.extend(table_dictionary[schema])
             print(tables)
-            for i in tables:
+            for i in all_tables:
                 columns = pd.DataFrame(helpers.execute_sql(session, f"SHOW COLUMNS IN TABLE {i}"))["column_name"].tolist()
                 source_columns = st.multiselect(label = f"Source Columns From Table: {i}", options = columns)
                 column_dictionary[f"{i}"] = source_columns
-            print(column_dictionary)
-
-        # User Role selection wizard
-            roles = pd.DataFrame(helpers.execute_sql(session, f"SHOW ROLES"))["name"].tolist()
-            source_roles = st.selectbox(label = f"User Role", options = roles)
+                all_columns.extend(source_columns)
+                # Remove duplicates from all_columns (if needed)
+                all_columns = list(dict.fromkeys(all_columns))
+                col_status = "ran"
 
         # Save to session
-        if len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(source_roles) > 0:
+        if len(source_db) > 0 and len(source_schemas) > 0 and len(table_dictionary) > 0 and len(source_roles) > 0 and col_status == "ran":
             st.session_state.source_db = source_db
             st.session_state.source_schemas = source_schemas
-            st.session_state.source_tables = source_tables
-            st.session_state.source_columns = source_columns
+            st.session_state.source_tables = all_tables
+            st.session_state.source_columns = all_columns
             st.session_state.source_roles = source_roles
             st.session_state.cohort_status = "ran"    
 
@@ -118,65 +131,129 @@ with cohort_builder:
             st.write("**No Environments Detected. Please create an environment to get started.**")
         else:
             if len(st.session_state.source_columns) > 0 and len(st.session_state.source_roles) > 0 and st.session_state.cohort_status == "ran":
-                st.header("Filters:")
+                st.subheader("Filters")
 
         # # Update the session state with the selected columns
-        # st.session_state.filter_state['table'] = st.session_state.source_tables
-        # st.session_state.filter_state['columns'] = st.session_state.source_columns
-        # st.write(st.session_state.filter_state['table'])
-
-        for table in st.session_state.source_tables:
+        st.session_state.filter_state['table'] = st.session_state.source_tables
+        st.session_state.filter_state['columns'] = st.session_state.source_columns
+        #st.session_state.source_tables = ', '.join(st.session_state.source_tables)
+        #st.write(st.session_state.source_tables)
+    
+        for i in list(st.session_state.source_tables):
+            #st.write({i})
             helpers.execute_sql(session, f"USE ROLE {st.session_state.source_roles}")
             helpers.execute_sql(session, f"USE WAREHOUSE {warehouse}")
-            data = pd.DataFrame(helpers.execute_sql(session, f"SELECT * FROM {st.session_state.source_tables}"))
+            data = pd.DataFrame(helpers.execute_sql(session, f"SELECT * FROM {i}"))
         
         filters = {}
         for col in st.session_state.source_columns:
-            unique_values = data[col].unique().tolist()
-            unique_values.insert(0, "All")
-            selected_value = st.multiselect(col, [''] + unique_values)
-            unique_values.remove("All")
-            if "All" in selected_value:
-                selected_value = list(unique_values)
-            if selected_value:
-                filters[col] = selected_value
+            if col in data.columns:
+                unique_values = data[col].unique().tolist()
+                unique_values.insert(0, "All")
+                selected_value = st.multiselect(f"Filter {col}", [''] + unique_values)
+                unique_values.remove("All")
+                
+                if "All" in selected_value:
+                    selected_value = list(unique_values)
+                
+                if selected_value:
+                    filters[col] = selected_value
+            else:
+                st.warning(f"Column '{col}' not found in the data.")
+
+            # unique_values = data[col].unique().tolist()
+            # unique_values.insert(0, "All")
+            # selected_value = st.multiselect(col, [''] + unique_values)
+            # unique_values.remove("All")
+            # if "All" in selected_value:
+            #     selected_value = list(unique_values)
+            # if selected_value:
+            #     filters[col] = selected_value
 
         if st.button("Apply Filters and Preview Cohort"):
-            # Create a Snowflake query with filters
-            query = f"SELECT * FROM {st.session_state.source_tables}"
-            if any(filters.values()):
-                query += " WHERE "
-                for col, filter_val in filters.items():
-                    if filter_val:
-                        if isinstance(filter_val, list):
-                            # Use a list in the WHERE clause for multiple values
-                            val_list = ', '.join(f"'{val}'" for val in filter_val)
-                            query += f"{col} IN ({val_list}) AND "
-                        else:
-                            query += f"{col} = '{filter_val}' AND "
-                query = query.rstrip(" AND ")
-                   
+            for i in list(st.session_state.source_tables):
+                #st.write({i})
+                # Create a Snowflake query with filters
+                query = f"SELECT * FROM {i}"
+                if any(filters.values()):
+                    query += " WHERE "
+                    for col, filter_val in filters.items():
+                        if filter_val:
+                            if isinstance(filter_val, list):
+                                # Use a list in the WHERE clause for multiple values
+                                val_list = ', '.join(f"'{val}'" for val in filter_val)
+                                query += f"{col} IN ({val_list}) AND "
+                            else:
+                                query += f"{col} = '{filter_val}' AND "
+                    query = query.rstrip(" AND ")
 
+            #st.write(f"Generated Query: {query}") 
+            #st.session_state.query = query        
             result = helpers.execute_sql(session, query)
             filtered_cohort = pd.DataFrame(result)
-            st.write(filtered_cohort)
             filtered_cohort_build = "ran"
+            st.write(filtered_cohort)
+            st.session_state.filtered_cohort = filtered_cohort
 
-        if filtered_cohort_build == "ran":
-            if st.button("Create New Cohort"):
-                # Create a new table in Snowflake
-                cols = list(filtered_cohort.columns)
-                helpers.create_table_in_snowflake(session, tb_name, "TRE", "PUBLIC", cols)
+        #if filtered_cohort_build == "ran":
+        if st.button("Create New Cohort"):
+            # Create a new table in Snowflake
 
-                # Load the Pandas DataFrame into Snowflake
-                helpers.load_df_to_snowflake(session, filtered_cohort, st.session_state.source_tables, st.session_state.source_schemas)
+            # if 'filtered_cohort' in st.session_state and not st.session_state.filtered_cohort.empty:
+            # # Generate a unique table name
+            #     import uuid
+            #     new_table_name = f"COHORT_{uuid.uuid4().hex[:8].upper()}"
+                
+            #     # Create a new table in Snowflake
+            #     cohort_role = ["USE ROLE SYSADMIN"]
+            #     create_table_query = f"""
+            #     CREATE OR REPLACE TABLE {st.session_state.source_db}.PUBLIC.{new_table_name} AS
+            #     SELECT * FROM ({st.session_state.query})
+            #     """
+            #     cohort_role.append(create_table_query)
+                
+            #     try:
+            #         # Execute the create table query
+            #         helpers.execute_sql(session, cohort_role)
+                    
+            #         # Write the data to the new table
+            #         success, nchunks, nrows, _ = write_pandas(
+            #             session,
+            #             st.session_state.filtered_cohort,
+            #             f"{st.session_state.source_db}.PUBLIC.{new_table_name}",
+            #             auto_create_table=False
+            #         )
+                    
+            #         if success:
+            #             st.success(f"New Cohort Created Successfully!")
+            #             st.write(f"<center><b>New Cohort Details:</b></center>", unsafe_allow_html=True)
+            #             st.write(f"<center>Database: <u><b>{st.session_state.source_db}</b></u><br>Schema: <u><b>PUBLIC</b></u><br>Table: <u><b>{new_table_name}</b></u></center>", unsafe_allow_html=True)
+            #             st.write(" ")
+            #             st.write(st.session_state.filtered_cohort)
+            #         else:
+            #             st.error("Failed to write data to the new table.")
+                
+            #     except Exception as e:
+            #         st.error(f"An error occurred while creating the new cohort: {str(e)}")
+            
+            # else:
+            #     st.warning("Please apply filters and preview the cohort before creating a new one.")
+            
+            filtered_cohort_df = pd.DataFrame(st.session_state.filtered_cohort)
+            cols = list(filtered_cohort_df.columns)
+            helpers.create_table_in_snowflake(session, cohort_name, "TRE", "PUBLIC", cols)
 
-                # column_dtype_dict = filtered_cohort.dtypes.astype(str).to_dict()
-                # create_new_sf_table(session, tb_name, column_dtype_dict, "TRE", "PUBLIC")
-                st.write(f"New Cohort Created in {st.session_state.source_db} as {tb_name}")
+            #Load the Pandas DataFrame into Snowflake
+            helpers.execute_sql(session, f"USE ROLE {st.session_state.source_roles}")
+            helpers.execute_sql(session, f"USE DATABASE TRE")
+            helpers.load_df_to_snowflake(session, filtered_cohort_df, cohort_name, "PUBLIC", "TRE")
 
-    else:
-        st.write("Try Again")
+            # column_dtype_dict = filtered_cohort_df.dtypes.astype(str).to_dict()
+            # helpers.create_new_sf_table(session, "testcohort", column_dtype_dict, "TRE", "PUBLIC")
+            #st.write(f"New Cohort Loaded in {st.session_state.source_db} as {tb_name}")
+
+    # else:
+    #     st.write("Please make sure all options are complete.")
 
         
 # ############ ------------------------------------------------------------------------------------------------------------------------------------------------
