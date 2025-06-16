@@ -1,4 +1,7 @@
 import streamlit as st
+import snowflake.connector
+from snowflake.snowpark import Session
+
 import sys
 sys.path.append('./src')
 from helpers import helpers
