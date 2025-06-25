@@ -142,5 +142,3 @@
   - `fr_name`: Name of the functional role.
   - `wh_name`: Name of the warehouse.
 - **Returns**: List of SQL statements with privileges, FR assignments, and WH assignments.
-
-
